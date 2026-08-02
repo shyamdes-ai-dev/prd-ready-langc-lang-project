@@ -11,3 +11,8 @@ dependencies = [
     "langgraph>=1.2.5",
     "python-dotenv>=1.2.2",
 ]
+
+[dependency-groups]
+dev = [
+    "black>=26.3.1",
+]
