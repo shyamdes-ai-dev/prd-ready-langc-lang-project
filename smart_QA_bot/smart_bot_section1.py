@@ -16,30 +16,40 @@ if os.getenv("LANGSMITH_API_KEY"):
     os.environ["LANGSMITH_API_KEY"] = os.getenv("LANGSMITH_API_KEY")
     os.environ["LANGSMITH_TRACING"] = "true"
     os.environ["LANGCHAIN_TRACING_V2"] = "true"
-    os.environ["LANGCHAIN_PROJECT"] = os.getenv("LANGSMITH_PROJECT", "Smart Q&A Bot Project")
+    os.environ["LANGCHAIN_PROJECT"] = os.getenv(
+        "LANGSMITH_PROJECT", "Smart Q&A Bot Project"
+    )
     print("Langsmith environment setup complete")
 else:
     print("Langsmith API key not found")
 
 
-#Schema Definition
+# Schema Definition
+
 
 class QAResponse(BaseModel):
     answer: str = Field(description="The answer to the user's question")
     confidence: str = Field(description="Confidence leverl: high, medium or low")
     reasoning: str = Field(description="The reasoning behind the answer provided")
-    follow_up_questions: List[str] = Field(description="List of follow-up questions related to the topic", default_factory=list)
-    sources_needed: bool = Field(description="Whether sources are needed to answer the question", default=False)    
-
+    follow_up_questions: List[str] = Field(
+        description="List of follow-up questions related to the topic",
+        default_factory=list,
+    )
+    sources_needed: bool = Field(
+        description="Whether sources are needed to answer the question", default=False
+    )
 
 
 class SmartQABot:
-    def __init__(self,model_name="gemini-3.5-flash-lite"):
-        self.model = init_chat_model(model=model_name,model_provider="google_genai").with_structured_output(QAResponse)
-        self.prompt = ChatPromptTemplate.from_messages([
-            (
-                "system", 
-                """You are a knowledgeable Q&A assistant
+    def __init__(self, model_name="gemini-3.5-flash-lite"):
+        self.model = init_chat_model(
+            model=model_name, model_provider="google_genai"
+        ).with_structured_output(QAResponse)
+        self.prompt = ChatPromptTemplate.from_messages(
+            [
+                (
+                    "system",
+                    """You are a knowledgeable Q&A assistant
                  
                  Your Guidelines:
                  - Answer questions accurately and concidely
@@ -49,12 +59,13 @@ class SmartQABot:
                  - Flag if sources are needed
                  - Indicate if external sources would help
                  
-                Always response with accurate, helpful information."""
-            ),
-            ("human", "{question}"),
-            ])
+                Always response with accurate, helpful information.""",
+                ),
+                ("human", "{question}"),
+            ]
+        )
         self.chain = self.prompt | self.model
-    
+
     @traceable(name="ask_question", run_type="chain")
     def ask(self, question: str) -> QAResponse:
         try:
@@ -66,15 +77,15 @@ class SmartQABot:
                 confidence="low",
                 reasoning=str(e),
                 follow_up_questions=[],
-                sources_needed=False
+                sources_needed=False,
             )
 
-    @traceable(name="ask_batch", run_type="chain")        
+    @traceable(name="ask_batch", run_type="chain")
     def ask_batch(self, questions: List[str]) -> List[QAResponse]:
         """Ask multiple questions in parallel using batch invoke"""
         inputs = [{"question": q} for q in questions]
         return self.chain.batch(inputs)
-            
+
 
 def qa_bot():
     bot = SmartQABot()
@@ -91,7 +102,7 @@ def qa_bot():
     print("=" * 60)
 
     print("Asking questions...")
-    
+
     for question in questions:
         print(f"\nQ: {question}")
         print("-" * 60)
@@ -108,7 +119,7 @@ def qa_bot():
 
 @traceable(name="error_handling_demo", run_type="chain")
 def error_handling():
-    """Demonstrate error handling """
+    """Demonstrate error handling"""
 
     bot = SmartQABot()
 
@@ -144,8 +155,8 @@ def batch_processing():
         "What is the smallest country in the world?",
         "What is the most populous country in the world?",
         "What is the largest desert in the world?",
-    ]   
-    
+    ]
+
     responses = bot.ask_batch(questions)
 
     for question, response in zip(questions, responses):
@@ -157,7 +168,7 @@ def batch_processing():
         print(f"Reasoning: {response.reasoning}")
         print(f"Follow-up Questions: {', '.join(response.follow_up_questions)}")
         print(f"Sources Needed: {response.sources_needed}")
-        print("-" * 60) 
+        print("-" * 60)
 
 
 def main():
@@ -165,12 +176,11 @@ def main():
         qa_bot()
         batch_processing()
         error_handling()
-        
+
     finally:
         client = Client()
-        client.flush() #ensure all traces are sent to langsmith
-        
+        client.flush()  # ensure all traces are sent to langsmith
+
 
 if __name__ == "__main__":
     main()
-    

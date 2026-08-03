@@ -14,10 +14,10 @@ load_dotenv()
 
 
 def invoke_llm():
-    llm = ChatGoogleGenerativeAI(model="gemini-3.5-flash-lite",temperature=0)
+    llm = ChatGoogleGenerativeAI(model="gemini-3.5-flash-lite", temperature=0)
     response = llm.invoke("Say 'setup complete' in one word ")
     print("response from google gemini", response.content)
-    print(response.content[0]['text'])
+    print(response.content[0]["text"])
 
 
 invoke_llm()
