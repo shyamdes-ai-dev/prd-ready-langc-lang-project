@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 from langchain_community.document_loaders import DirectoryLoader, TextLoader
 from bs4 import BeautifulSoup
 
+
 def lazy_loader():
     with tempfile.TemporaryDirectory() as tmpdir:
         for i in range(5):
@@ -19,5 +20,6 @@ def lazy_loader():
             print("Document Content Preview:", doc.page_content[:100], "....")
             print("Metadata:", doc.metadata["source"])
             print("")
+
 
 lazy_loader()

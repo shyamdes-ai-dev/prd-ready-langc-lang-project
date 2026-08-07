@@ -2,6 +2,7 @@ from langchain_google_genai import GoogleGenerativeAIEmbeddings
 import os
 from dotenv import load_dotenv
 import numpy as np
+
 load_dotenv()
 
 
@@ -16,6 +17,9 @@ def embeddings_deep():
     print("embed query: ", vec1)
     print("embed documents: ", embeddings.embed_documents(document))
     print(f"Vector Norm: {np.linalg.norm(vec1)}")
-    print(f"Similarity: {np.dot(vec1,vec2)} / ({np.linalg.norm(vec1)*np.linalg.norm(vec2)})")
+    print(
+        f"Similarity: {np.dot(vec1,vec2)} / ({np.linalg.norm(vec1)*np.linalg.norm(vec2)})"
+    )
+
 
 embeddings_deep()

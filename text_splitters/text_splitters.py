@@ -3,7 +3,7 @@ from langchain_text_splitters import (
     CharacterTextSplitter,
     TokenTextSplitter,
     MarkdownHeaderTextSplitter,
-    Language
+    Language,
 )
 
 from langchain_core.documents import Document
@@ -81,11 +81,10 @@ def binary_search(arr, target):
     return -1
 '''
 
+
 def recursive_splitter():
     splitter = RecursiveCharacterTextSplitter(
-        chunk_size=500,
-        chunk_overlap=50,
-        separators=["\n\n", "\n", " ", ""]
+        chunk_size=500, chunk_overlap=50, separators=["\n\n", "\n", " ", ""]
     )
     chunks = splitter.split_text(text=SAMPLE_TEXT)
 
@@ -94,43 +93,43 @@ def recursive_splitter():
     print(f"chunk sizes: {[len(c) for c in chunks]}")
     print(f"Chunk preview: {chunks[0][:100]}...")
 
+
 def chunk_size_comparison():
-    chunk_sizes = [100,200,500,1000,2000]
+    chunk_sizes = [100, 200, 500, 1000, 2000]
 
     for chunk_size in chunk_sizes:
-        splitter = RecursiveCharacterTextSplitter(chunk_size=chunk_size,
-                                                  chunk_overlap=chunk_size //5)
+        splitter = RecursiveCharacterTextSplitter(
+            chunk_size=chunk_size, chunk_overlap=chunk_size // 5
+        )
         chunks = splitter.split_text(text=SAMPLE_TEXT)
         print(f" Size {chunk_size}: {len(chunks)} chunks")
- 
+
 
 def markdown_splitters():
-    headers_to_consider = [
-        ("#", "h1"),
-        ("##", "h2"),
-        ("###", "h3")
-    ]
+    headers_to_consider = [("#", "h1"), ("##", "h2"), ("###", "h3")]
 
-
-
-    splitter = MarkdownHeaderTextSplitter(headers_to_split_on=headers_to_consider,
-                                        strip_headers=False)
+    splitter = MarkdownHeaderTextSplitter(
+        headers_to_split_on=headers_to_consider, strip_headers=False
+    )
     chunks = splitter.split_text(text=SAMPLE_TEXT)
-    
+
     for i, chunk in enumerate(chunks):
         print(f"Chunk {i+1}:")
         print(chunk.page_content)
-        print("Headers: ",chunk)
+        print("Headers: ", chunk)
         print("-" * 40)
 
 
 def code_splitter():
-    python_splitter = RecursiveCharacterTextSplitter.from_language(language=Language.PYTHON, chunk_size=500, chunk_overlap=50)
+    python_splitter = RecursiveCharacterTextSplitter.from_language(
+        language=Language.PYTHON, chunk_size=500, chunk_overlap=50
+    )
     chunks = python_splitter.split_text(text=SAMPLE_CODE)
 
     for i, chunk in enumerate(chunks):
         print(f"Chunk {i+1}:")
         print(chunk)
         print("-" * 40)
+
 
 code_splitter()
