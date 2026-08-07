@@ -8,12 +8,15 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+
 class AccumulatingState(TypedDict):
     """
     Accumulating state.
     """
+
     messages: Annotated[list[BaseMessage], operator.add]
     count: Annotated[int, operator.add]
+
 
 def accumulating_state():
     def step_one(state: AccumulatingState) -> dict:
@@ -36,11 +39,8 @@ def accumulating_state():
     # print(result["messages"])
     # print(result["count"])
 
-    
-    for chunk in app.stream({"messages": [HumanMessage(content="Starting message")], "count": 0}, stream_mode="values"):
+    for chunk in app.stream(
+        {"messages": [HumanMessage(content="Starting message")], "count": 0},
+        stream_mode="values",
+    ):
         print(chunk)
-
-
-    
-
-    

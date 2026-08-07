@@ -9,7 +9,9 @@ load_dotenv()
 
 
 def web_loader():
-    loader = WebBaseLoader("https://en.wikipedia.org/wiki/LangChain", bs_kwargs={"parse_only":None})
+    loader = WebBaseLoader(
+        "https://en.wikipedia.org/wiki/LangChain", bs_kwargs={"parse_only": None}
+    )
     doc = loader.load()
 
     print(f"Loaded {len(doc)} documents from the web")
@@ -18,6 +20,5 @@ def web_loader():
     print(f"Content Length: {len(doc[0].page_content)} characters")
     print(f"Preview: {doc[0].page_content[:200]}...")
 
-    
 
 web_loader()

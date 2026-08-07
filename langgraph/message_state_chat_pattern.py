@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+
 class MessageState(TypedDict):
     messages: Annotated[list[BaseMessage], operator.add]
 
@@ -15,10 +16,12 @@ class MessageState(TypedDict):
 def add_message(state: MessageState, message: BaseMessage) -> dict:
     return {"messages": message}
 
-def message_state() -> dict:
-    llm = model = init_chat_model(model="gemini-3.5-flash", model_provider="google_genai")
 
-    
+def message_state() -> dict:
+    llm = model = init_chat_model(
+        model="gemini-3.5-flash", model_provider="google_genai"
+    )
+
     def chat_node(state: MessageState) -> dict:
         response = llm.invoke(state["messages"])
         return {"messages": [response]}
@@ -33,6 +36,11 @@ def message_state() -> dict:
     result = app.invoke({"messages": [HumanMessage(content="Say Heloo in Tagalog")]})
     for msg in result["messages"]:
         role = "Human" if isinstance(msg, HumanMessage) else "AI"
-        print(f"{role}: {msg.content}" if role == "Human" else f"{role}: {msg.content[0].get('text')}")
+        print(
+            f"{role}: {msg.content}"
+            if role == "Human"
+            else f"{role}: {msg.content[0].get('text')}"
+        )
+
 
 message_state()
