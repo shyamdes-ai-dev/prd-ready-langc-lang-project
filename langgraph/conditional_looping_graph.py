@@ -10,8 +10,9 @@ load_dotenv()
 
 model = init_chat_model(model_provider="google_genai", model="gemini-3.5-flash-lite")
 
+
 class QualityState(TypedDict):
-    content:str
+    content: str
     quality_score: int
     feedback: str
     final_content: str
@@ -22,10 +23,11 @@ def conditional_looping_graph() -> dict:
     """
     Create a conditional loop graph that evaluates the quality of the content and returns the feedback and quality score.
     """
+
     def evaluate_quality(state: QualityState) -> dict:
-        response=model.invoke(
+        response = model.invoke(
             f"Rate this content quality from 1-10. Reply with just the number.\n\n"
-            f"Content: {state['content']}" 
+            f"Content: {state['content']}"
         )
         try:
             score = int(response.content[0].get("text"))
@@ -38,18 +40,21 @@ def conditional_looping_graph() -> dict:
             f"Improve this content based on the feedback. Reply with just the improved content.\n\n"
             f"Content: {state['content']}\n"
         )
-        return {"content": response.content[0].get("text"), "iteration": state["iteration"]+1}
+        return {
+            "content": response.content[0].get("text"),
+            "iteration": state["iteration"] + 1,
+        }
 
     def finalize_content(state: QualityState) -> dict:
-        return{
-            "final_content": state['content'],
-            "feedback": f"Approved after {state['iteration']} iterations with score {state['quality_score']}"
+        return {
+            "final_content": state["content"],
+            "feedback": f"Approved after {state['iteration']} iterations with score {state['quality_score']}",
         }
-    
+
     def should_continue(state: QualityState) -> Literal["improve", "finalize"]:
-        if state['quality_score'] >= 7 or state['iteration'] >= 2:
+        if state["quality_score"] >= 7 or state["iteration"] >= 2:
             return "finalize"
-        return "improve" 
+        return "improve"
 
     workflow = StateGraph(QualityState)
     workflow.add_node("evaluate_quality", evaluate_quality)
@@ -57,25 +62,27 @@ def conditional_looping_graph() -> dict:
     workflow.add_node("finalize_content", finalize_content)
 
     workflow.add_edge(START, "evaluate_quality")
-    workflow.add_conditional_edges("evaluate_quality", should_continue, {"improve": "improve_content", "finalize": "finalize_content"})
+    workflow.add_conditional_edges(
+        "evaluate_quality",
+        should_continue,
+        {"improve": "improve_content", "finalize": "finalize_content"},
+    )
     workflow.add_edge("improve_content", "evaluate_quality")
     workflow.add_edge("finalize_content", END)
 
     graph = workflow.compile()
 
-    result = graph.invoke({
-        "content": "Write a short story about a robot who discovered emotions.",
-        "iteration": 0
-    })
-    
-    print("Final Content: ", result['final_content'])
-    print("Feedback: ", result['feedback'])
+    result = graph.invoke(
+        {
+            "content": "Write a short story about a robot who discovered emotions.",
+            "iteration": 0,
+        }
+    )
+
+    print("Final Content: ", result["final_content"])
+    print("Feedback: ", result["feedback"])
     print("Iteration: ", result["iteration"])
     print("Quality Score: ", result["quality_score"])
 
-    
-            
-conditional_looping_graph()
 
-    
-    
+conditional_looping_graph()
