@@ -33,7 +33,7 @@ def interrupt_for_approval():
         return {"draft": response.content[0].get("text")}
 
     def wait_for_approval(state: ApprovalState) -> dict:
-
+        # Execution will pause here until human intervention
         return state
 
     def finalize(state: ApprovalState) -> dict:
