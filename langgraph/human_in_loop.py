@@ -14,26 +14,29 @@ load_dotenv()
 
 model = init_chat_model(model_provider="google_genai", model="gemini-3.5-flash")
 
+
 class ApprovalState(TypedDict):
     request: str
     draft: str
     approved: bool
     feedback: str
-    final: str 
+    final: str
+
 
 def interrupt_for_approval():
     """Interrupt for human approval at critical steps"""
 
     def create_draft(state: ApprovalState) -> dict:
         response = model.invoke(
-            f"Create a professional response for : {state['request']}\n")
-        return {'draft': response.content[0].get('text')}
+            f"Create a professional response for : {state['request']}\n"
+        )
+        return {"draft": response.content[0].get("text")}
 
-    def wait_for_approval(state:ApprovalState) -> dict:
-        
+    def wait_for_approval(state: ApprovalState) -> dict:
+
         return state
 
-    def finalize(state:ApprovalState) -> dict:
+    def finalize(state: ApprovalState) -> dict:
         if state["approved"]:
             return {"final": state["draft"]}
         else:
@@ -54,31 +57,31 @@ def interrupt_for_approval():
     graph.add_edge("draft", "approval")
     graph.add_edge("approval", "finalize")
     graph.add_edge("finalize", END)
-    
-    #Add checkpointer to enable state saving between interruptions
+
+    # Add checkpointer to enable state saving between interruptions
     app = graph.compile(
         checkpointer=MemorySaver(),
-        interrupt_before=["approval"] # Interrupt before the approval node to allow human intervention
-    ) 
+        interrupt_before=[
+            "approval"
+        ],  # Interrupt before the approval node to allow human intervention
+    )
 
     print("Human in the loop Approval Demo\n")
 
     # Configuration for this thread
-    config = {
-        "configurable": {
-            "thread_id": "demo-1"
-        }
-    }    
+    config = {"configurable": {"thread_id": "demo-1"}}
 
-    # Step 1: Run until interrupt    
+    # Step 1: Run until interrupt
     result = app.invoke(
         {
-        "request": "Write a thank-you email ofr a job interview",
-        "draft": "",
-        "approved": False,
-        "feedback": "",
-        "final": ""
-    }, config)   
+            "request": "Write a thank-you email ofr a job interview",
+            "draft": "",
+            "approved": False,
+            "feedback": "",
+            "final": "",
+        },
+        config,
+    )
 
     print(f"\nDraft Created:\n{result['draft'][:200]}....")
     print("\n[Execution paused for human review]")
@@ -94,9 +97,9 @@ def interrupt_for_approval():
     app.update_state(
         config,
         {
-            "approved": False, #Request changes
-            "feedback": "Make it more concise and add specific mention of the company"
-        }
+            "approved": False,  # Request changes
+            "feedback": "Make it more concise and add specific mention of the company",
+        },
     )
     # Continue execution
     final_result = app.invoke(None, config)

@@ -9,13 +9,15 @@ from typing_extensions import TypedDict, Annotated
 
 model = init_chat_model(model_provider="google_genai", model="gemini-3.5-flash-lite")
 
+
 class ResearchState(TypedDict):
     topic: str
     findings: Annotated[list[str], operator.add]
-    questions:list[str]
+    questions: list[str]
     iteration: int
     max_depth: int
     summary: str
+
 
 def iterative_research():
     """Iterative research that goes deeper based on findings"""
@@ -28,18 +30,19 @@ def iterative_research():
 
         response = model.invoke(query)
         return {
-            "findings": [response.content[0].get("text")],}
+            "findings": [response.content[0].get("text")],
+        }
 
     def generate_questions(state: ResearchState) -> dict:
-        response =  model.invoke(
+        response = model.invoke(
             f"Based on this finding:\n{state['findings'][-1]}\n\n"
             "What is one deeper question to explore? Reply with just the question"
         )
-        return{
-            "questions":[response.content[0].get("text")],
-            "iteration": state["iteration"] + 1
+        return {
+            "questions": [response.content[0].get("text")],
+            "iteration": state["iteration"] + 1,
         }
-    
+
     def synthesize(state: ResearchState) -> dict:
         all_findings = "\n\n".join(state["findings"])
         response = model.invoke(
@@ -48,7 +51,7 @@ def iterative_research():
         return {"summary": response.content[0].get("text")}
 
     def should_continue(state: ResearchState) -> Literal["research", "synthesize"]:
-        if state["iteration"] >= state['max_depth']:
+        if state["iteration"] >= state["max_depth"]:
             return "synthesize"
         return "research"
 
@@ -65,22 +68,25 @@ def iterative_research():
         {"research": "research", "synthesize": "synthesize"},
     )
     graph.add_edge("synthesize", END)
-    
+
     app = graph.compile()
 
     print("\n Iterative Research Agent:\n")
-    result = app.invoke({
-        "topic": "quantum computing applications",
-        "findings": [],
-        "questions": [],
-        "max_depth": 2,
-        "summary": "",
-        "iteration": 0
-    })
+    result = app.invoke(
+        {
+            "topic": "quantum computing applications",
+            "findings": [],
+            "questions": [],
+            "max_depth": 2,
+            "summary": "",
+            "iteration": 0,
+        }
+    )
 
     print(f"Topic: {result['topic']}")
     print(f"Iterations: {result['iteration']}")
     print(f"\n Findings collected: {len(result['findings'])}")
     print(f"\n Final Summary: \n{result['summary']}")
+
 
 iterative_research()
