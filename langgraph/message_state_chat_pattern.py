@@ -13,11 +13,7 @@ class MessageState(TypedDict):
     messages: Annotated[list[BaseMessage], operator.add]
 
 
-def add_message(state: MessageState, message: BaseMessage) -> dict:
-    return {"messages": message}
-
-
-def message_state() -> dict:
+def message_state():
     llm = model = init_chat_model(
         model="gemini-3.5-flash", model_provider="google_genai"
     )
