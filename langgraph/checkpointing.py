@@ -16,10 +16,11 @@ model = init_chat_model(model_provider="google_genai", model="gemini-3.5-flash-l
 class ChatState(TypedDict):
     messages: Annotated[list[BaseMessage], operator.add]
 
+
 def memory_saver():
     """In-memory checkpointing for development"""
 
-    def chat(state: ChatState) -> dict: 
+    def chat(state: ChatState) -> dict:
         response = model.invoke(state["messages"])
         return {"messages": [response]}
 
@@ -28,27 +29,25 @@ def memory_saver():
 
     workflow.add_edge(START, "chat")
     workflow.add_edge("chat", END)
-    
+
     checkpointer = MemorySaver()
     app = workflow.compile(checkpointer=checkpointer)
 
     print("Memory Saver (Multi-turn conversation): \n")
 
-    # Need a config object to store the checkpoint id 
+    # Need a config object to store the checkpoint id
     config = {"configurable": {"thread_id": "thread_1"}}
-    
+
     # Turn 1
     result = app.invoke(
-        {"messages": [HumanMessage(content="My Name is Shyam?")]},
-        config=config
+        {"messages": [HumanMessage(content="My Name is Shyam?")]}, config=config
     )
 
     print(f"Turn 1 - AI: {result['messages'][-1].content[0].get('text')}\n")
 
     # Turn 2
     result = app.invoke(
-        {"messages": [HumanMessage(content="What is my name?")]},
-        config=config
+        {"messages": [HumanMessage(content="What is my name?")]}, config=config
     )
 
     print(f"Turn 2 - AI: {result['messages'][-1].content[0].get('text')}\n")
@@ -59,23 +58,22 @@ def memory_saver():
 
 
 def sqlite_persistence():
-    """ SQLite persistence for durable storage."""
-
+    """SQLite persistence for durable storage."""
 
     def chat(state: ChatState) -> dict:
         response = model.invoke(state["messages"])
-        return {"messages":[response]}
-    
+        return {"messages": [response]}
+
     workflow = StateGraph(ChatState)
     workflow.add_node("chat", chat)
 
     workflow.add_edge(START, "chat")
     workflow.add_edge("chat", END)
-    
+
     # Create Temp database
     with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
         db_path = f.name
-    
+
     print(f"\n SQLITE Persistence:")
     print(f"Database: {db_path}")
 
@@ -86,12 +84,23 @@ def sqlite_persistence():
 
         result = app.invoke(
             {
-                "messages": [HumanMessage(content="Remeber: The secreate code is ALPHA-123")]
+                "messages": [
+                    HumanMessage(content="Remember: The secret code is ALPHA-123")
+                ]
             },
-            config=config
+            config=config,
         )
         print(f"Session 1 - Stored secret Code")
 
-         
+    with SqliteSaver.from_conn_string(db_path) as saver:
+        app = workflow.compile(checkpointer=saver)
+        config = {"configurable": {"thread_id": "persistent-user"}}
 
-        
+        result = app.invoke(
+            {"messages": [HumanMessage(content="What was the secret code?")]},
+            config=config,
+        )
+        print(f"Session 2 - AI: {result['messages'][-1].content[0].get('text')}")
+
+
+sqlite_persistence()
