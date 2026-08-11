@@ -86,12 +86,24 @@ def sqlite_persistence():
 
         result = app.invoke(
             {
-                "messages": [HumanMessage(content="Remeber: The secreate code is ALPHA-123")]
+                "messages": [HumanMessage(content="Remember: The secret code is ALPHA-123")]
             },
             config=config
         )
         print(f"Session 1 - Stored secret Code")
 
-         
+    with SqliteSaver.from_conn_string(db_path) as saver:
+        app = workflow.compile(checkpointer=saver)
+        config = {"configurable": {"thread_id": "persistent-user"}}
 
+        result = app.invoke(
+            {
+                "messages": [HumanMessage(content="What was the secret code?")]
+            },
+            config=config
+        )
+        print(f"Session 2 - AI: {result['messages'][-1].content[0].get('text')}")
+    
+
+sqlite_persistence()
         
