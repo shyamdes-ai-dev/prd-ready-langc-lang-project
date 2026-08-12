@@ -1,63 +1,90 @@
-from langchain_core.messages import content
-from langchain_core.messages import SystemMessage
-from langchain.chat_models import init_chat_model
-from langgraph.graph import StateGraph, START, END
-from typing_extensions import TypedDict, Annotated
-from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
-from dotenv import load_dotenv
-import operator
+"""
+Sentiment-Adaptive Conversational Graph
+=======================================
+Demonstrates a multi-stage conversational agent that dynamically tunes its personality:
+1. `analyze_sentiment`: Evaluates the emotional polarity of the user's message (positive, negative, neutral).
+2. `generate_response`: Dynamically customizes its system prompt to match the detected sentiment
+   (e.g., empathetic for negative, enthusiastic for positive, informative for neutral).
+"""
 
+import operator
+from dotenv import load_dotenv
+from langchain.chat_models import init_chat_model
+from langchain_core.messages import HumanMessage, SystemMessage
+from langgraph.graph import END, START, StateGraph
+from typing_extensions import Annotated, TypedDict
+
+# Load API credentials
 load_dotenv()
 
 model = init_chat_model(model_provider="google_genai", model="gemini-3.5-flash-lite")
 
 
+# -----------------------------------------------------------------------------
+# State Schema
+# -----------------------------------------------------------------------------
 class ConversationState(TypedDict):
+    """
+    Tracks accumulating conversation logs, detected sentiment polarity, and response count.
+    """
     messages: Annotated[list, operator.add]
     sentiment: str
     response_count: int
 
 
 def create_conversation_graph():
+    """
+    Builds and compiles the sentiment-adaptive conversation graph.
+    """
     workflow = StateGraph(ConversationState)
 
+    # Node 1: Sentiment Analysis
     def analyze_sentiment(state: ConversationState) -> dict:
         last_message = state["messages"][-1]
-
         response = model.invoke(
             [
                 SystemMessage(
-                    content="classify sentiment as : postive, negative or neutral. Reply just with only single word"
+                    content="Classify sentiment strictly as: positive, negative, or neutral. "
+                            "Reply with only that single lowercase word."
                 ),
                 HumanMessage(content=last_message),
             ]
         )
-        print("=" * 60)
-        print("sentiment analyser output : ", response)
+        sentiment_text = response.content[0].get("text") if isinstance(response.content, list) else response.content
+        cleaned_sentiment = sentiment_text.lower().strip()
+        print(f"[Sentiment Analyzer] Detected: '{cleaned_sentiment}'")
+        return {"sentiment": cleaned_sentiment}
 
-        return {"sentiment": response.content[0].get("text")}
-
+    # Node 2: Adaptive Response Generation
     def generate_response(state: ConversationState) -> dict:
         last_message = state["messages"][-1]
         sentiment = state["sentiment"]
 
-        system_prompt = {
-            "positive": "Respond enthusiastically and build on their positive energy",
-            "negative": "Respond empathetically and offer support",
-            "neutral": "Respond helpfully and informatively",
+        # Dynamic persona adjustment based on user emotional state
+        system_prompts = {
+            "positive": "Respond enthusiastically and celebrate the user's positive energy!",
+            "negative": "Respond empathetically, validate their frustration, and offer supportive guidance.",
+            "neutral": "Respond informatively, helpfully, and clearly.",
         }
-        prompt = system_prompt.get(sentiment, system_prompt["neutral"])
+        active_prompt = system_prompts.get(sentiment, system_prompts["neutral"])
+
         response = model.invoke(
-            [SystemMessage(content=prompt), HumanMessage(content=last_message)]
+            [
+                SystemMessage(content=active_prompt),
+                HumanMessage(content=last_message),
+            ]
         )
+        ai_reply = response.content[0].get("text") if isinstance(response.content, list) else response.content
         return {
-            "messages": [f"AI: {response.content[0].get('text')}"],
+            "messages": [f"AI: {ai_reply}"],
             "response_count": 1,
         }
 
+    # Register Nodes
     workflow.add_node("analyze_sentiment", analyze_sentiment)
     workflow.add_node("generate_response", generate_response)
 
+    # Wire Edges: START -> analyze_sentiment -> generate_response -> END
     workflow.add_edge(START, "analyze_sentiment")
     workflow.add_edge("analyze_sentiment", "generate_response")
     workflow.add_edge("generate_response", END)
@@ -66,19 +93,30 @@ def create_conversation_graph():
 
 
 def conversation_graph():
+    """
+    Tests the sentiment-adaptive graph with positive, negative, and neutral scenarios.
+    """
     graph = create_conversation_graph()
+
     test_messages = [
-        "I just got promoted at Work! I am so happy :)",
-        "My computer  Crashed and I lost all my work",
-        "What's the weatehr like today?",
+        "I just got promoted at work! I am so thrilled! :)",
+        "My computer crashed and I lost all my unsaved work before the deadline.",
+        "What is the average surface temperature of Mars?",
     ]
-    for message in test_messages:
-        response = graph.invoke(
-            {"messages": [f"Human: {message}"], "sentiment": "", "response_count": 0}
+
+    print("\n=== Running Sentiment-Adaptive Conversational Agent ===")
+    for msg in test_messages:
+        print("\n" + "=" * 60)
+        print(f"User Message: {msg}")
+        result = graph.invoke(
+            {
+                "messages": [f"Human: {msg}"],
+                "sentiment": "",
+                "response_count": 0,
+            }
         )
-        print("*" * 30)
-        print(response["messages"])
-        print("=" * 60)
+        print(f"Detected Sentiment: {result['sentiment']}")
+        print(f"Response:\n{result['messages'][-1]}")
 
 
 if __name__ == "__main__":
