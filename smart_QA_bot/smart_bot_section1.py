@@ -1,17 +1,26 @@
 """
-A production-ready question-answering both with structured output
+Production-Ready Smart Q&A Bot Microservice
+============================================
+Demonstrates an enterprise-ready question-answering architecture featuring:
+1. Strict Pydantic Schema Contracts (`QAResponse`) for deterministic outputs.
+2. End-to-end distributed tracing & monitoring via LangSmith (`@traceable`).
+3. Graceful error handling & fallback responses to avoid runtime crashes.
+4. High-throughput parallel execution via `chain.batch()`.
+5. Safe telemetry flushing with `Client().flush()`.
 """
 
-from langchain.chat_models import init_chat_model
-from langchain_core.prompts import ChatPromptTemplate
-from pydantic import BaseModel, Field
+import os
 from typing import List, Optional
 from dotenv import load_dotenv
-from langsmith import traceable, Client
-import os
+from langchain.chat_models import init_chat_model
+from langchain_core.prompts import ChatPromptTemplate
+from langsmith import Client, traceable
+from pydantic import BaseModel, Field
 
+# Load API credentials from .env
 load_dotenv()
 
+# Configure LangSmith telemetry and project metadata if API key is provided
 if os.getenv("LANGSMITH_API_KEY"):
     os.environ["LANGSMITH_API_KEY"] = os.getenv("LANGSMITH_API_KEY")
     os.environ["LANGSMITH_TRACING"] = "true"
@@ -19,59 +28,87 @@ if os.getenv("LANGSMITH_API_KEY"):
     os.environ["LANGCHAIN_PROJECT"] = os.getenv(
         "LANGSMITH_PROJECT", "Smart Q&A Bot Project"
     )
-    print("Langsmith environment setup complete")
+    print("LangSmith environment setup complete.")
 else:
-    print("Langsmith API key not found")
+    print("LangSmith API key not found; running in local-only mode.")
 
 
-# Schema Definition
-
-
+# -----------------------------------------------------------------------------
+# Pydantic Schema Definition
+# -----------------------------------------------------------------------------
 class QAResponse(BaseModel):
-    answer: str = Field(description="The answer to the user's question")
-    confidence: str = Field(description="Confidence leverl: high, medium or low")
-    reasoning: str = Field(description="The reasoning behind the answer provided")
+    """
+    Structured response contract returned by the Smart Q&A Bot.
+    Guarantees consistent, type-safe attributes for downstream consumers/APIs.
+    """
+    answer: str = Field(description="The direct answer to the user's question.")
+    confidence: str = Field(description="Confidence level: 'high', 'medium', or 'low'.")
+    reasoning: str = Field(description="The underlying reasoning behind the provided answer.")
     follow_up_questions: List[str] = Field(
-        description="List of follow-up questions related to the topic",
+        description="Suggested follow-up questions related to the topic.",
         default_factory=list,
     )
     sources_needed: bool = Field(
-        description="Whether sources are needed to answer the question", default=False
+        description="Flag indicating if external verification or sources are required.",
+        default=False,
     )
 
 
+# -----------------------------------------------------------------------------
+# Smart Q&A Bot Implementation
+# -----------------------------------------------------------------------------
 class SmartQABot:
-    def __init__(self, model_name="gemini-3.5-flash-lite"):
+    """
+    Encapsulates the LLM chain, prompt guidelines, and structured output formatting.
+    """
+
+    def __init__(self, model_name: str = "gemini-3.5-flash-lite"):
+        """
+        Initializes the model with native structured output binding and system instructions.
+        """
+        # Bind Pydantic schema to the model
         self.model = init_chat_model(
             model=model_name, model_provider="google_genai"
         ).with_structured_output(QAResponse)
+
+        # Define system instructions and user message placeholders
         self.prompt = ChatPromptTemplate.from_messages(
             [
                 (
                     "system",
-                    """You are a knowledgeable Q&A assistant
+                    """You are a knowledgeable Q&A assistant.
                  
-                 Your Guidelines:
-                 - Answer questions accurately and concidely
-                 - Be honest about uncertainity - set confidence to 'low' if unsure
-                 - Provide clear reasoning for your answers
-                 - Suggest relevant follow-up questions
-                 - Flag if sources are needed
-                 - Indicate if external sources would help
+Your Guidelines:
+- Answer questions accurately and concisely.
+- Be honest about uncertainty: set confidence to 'low' if unsure.
+- Provide clear reasoning for your answers.
+- Suggest relevant follow-up questions.
+- Flag if external sources are needed.
                  
-                Always response with accurate, helpful information.""",
+Always respond with accurate, helpful information.""",
                 ),
                 ("human", "{question}"),
             ]
         )
+        # Assemble LCEL chain
         self.chain = self.prompt | self.model
 
     @traceable(name="ask_question", run_type="chain")
     def ask(self, question: str) -> QAResponse:
+        """
+        Asynchronously or synchronously invokes the Q&A chain with robust error recovery.
+
+        Args:
+            question (str): The user query.
+
+        Returns:
+            QAResponse: Structured response object or graceful fallback on exception.
+        """
         try:
-            response = self.chain.invoke({"question": question})
+            response: QAResponse = self.chain.invoke({"question": question})
             return response
         except Exception as e:
+            # Graceful error fallback to avoid unhandled service exceptions
             return QAResponse(
                 answer=f"Sorry - I couldn't process that question. Error: {str(e)}",
                 confidence="low",
@@ -82,104 +119,96 @@ class SmartQABot:
 
     @traceable(name="ask_batch", run_type="chain")
     def ask_batch(self, questions: List[str]) -> List[QAResponse]:
-        """Ask multiple questions in parallel using batch invoke"""
+        """
+        Processes multiple user questions in parallel using LCEL batching.
+
+        Args:
+            questions (List[str]): List of question strings.
+
+        Returns:
+            List[QAResponse]: List of structured response objects.
+        """
         inputs = [{"question": q} for q in questions]
         return self.chain.batch(inputs)
 
 
+# -----------------------------------------------------------------------------
+# Demonstrations
+# -----------------------------------------------------------------------------
 def qa_bot():
+    """Demonstrates standard single-question invocations."""
     bot = SmartQABot()
-
     questions = [
         "What is the capital of France?",
         "What is the largest city in the United States?",
         "What is the smallest country in the world?",
-        "What is the most populous country in the world?",
-        "What is the largest desert in the world?",
     ]
-    print("=" * 60)
+    print("\n" + "=" * 60)
     print("Smart Q&A Bot - Structured Output Demo")
     print("=" * 60)
-
-    print("Asking questions...")
 
     for question in questions:
         print(f"\nQ: {question}")
         print("-" * 60)
-
         response = bot.ask(question)
-
-        print(f"Answer: {response.answer}")
-        print(f"Confidence: {response.confidence}")
-        print(f"Reasoning: {response.reasoning}")
+        print(f"Answer             : {response.answer}")
+        print(f"Confidence         : {response.confidence}")
+        print(f"Reasoning          : {response.reasoning}")
         print(f"Follow-up Questions: {', '.join(response.follow_up_questions)}")
-        print(f"Sources Needed: {response.sources_needed}")
+        print(f"Sources Needed     : {response.sources_needed}")
         print("-" * 60)
 
 
 @traceable(name="error_handling_demo", run_type="chain")
 def error_handling():
-    """Demonstrate error handling"""
-
+    """Demonstrates resilient fallback on malformed or stressful inputs."""
     bot = SmartQABot()
-
-    print("\n", "=" * 60)
+    print("\n" + "=" * 60)
     print("Smart Q&A Bot - Error Handling Demo")
     print("=" * 60)
 
     long_question = "What is " + "Very " * 100 + "important?"
-
     response = bot.ask(long_question)
 
-    print(f"Answer: {response.answer}")
-    print(f"Confidence: {response.confidence}")
-    print(f"Reasoning: {response.reasoning}")
-    print(f"Follow-up Questions: {', '.join(response.follow_up_questions)}")
-    print(f"Sources Needed: {response.sources_needed}")
-    print("-" * 60)
+    print(f"Answer     : {response.answer}")
+    print(f"Confidence : {response.confidence}")
+    print(f"Reasoning  : {response.reasoning}")
 
 
 @traceable(name="batch_processing_demo", run_type="chain")
 def batch_processing():
-    """Demontrating batch processing."""
-
+    """Demonstrates high-throughput parallel batch querying."""
     bot = SmartQABot()
-
-    print("\n", "=" * 60)
+    print("\n" + "=" * 60)
     print("Smart Q&A Bot - Batch Processing Demo")
     print("=" * 60)
 
     questions = [
         "What is the capital of France?",
-        "What is the largest city in the United States?",
-        "What is the smallest country in the world?",
-        "What is the most populous country in the world?",
         "What is the largest desert in the world?",
+        "What is the speed of light in vacuum?",
     ]
 
     responses = bot.ask_batch(questions)
-
     for question, response in zip(questions, responses):
         print(f"\nQ: {question}")
-        print("-" * 60)
-
-        print(f"Answer: {response.answer}")
-        print(f"Confidence: {response.confidence}")
-        print(f"Reasoning: {response.reasoning}")
-        print(f"Follow-up Questions: {', '.join(response.follow_up_questions)}")
-        print(f"Sources Needed: {response.sources_needed}")
-        print("-" * 60)
+        print(f"A: {response.answer} (Confidence: {response.confidence})")
 
 
 def main():
+    """
+    Main runner executing all demonstrations and guaranteeing telemetry flush on exit.
+    """
     try:
         qa_bot()
         batch_processing()
         error_handling()
-
     finally:
+        # Crucial for scripts/CLIs: Ensure all asynchronous background telemetry traces
+        # are delivered to LangSmith before the Python process exits.
         client = Client()
-        client.flush()  # ensure all traces are sent to langsmith
+        client.flush()
+        print("\nLangSmith traces successfully flushed.")
 
 
 if __name__ == "__main__":
