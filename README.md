@@ -1,5 +1,6 @@
 # 🚀 Production-Ready LangChain & LangGraph Reference Architecture
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
 [![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-blue.svg?style=for-the-badge&logo=python)](https://www.python.org/)
 [![LangChain Core 1.4+](https://img.shields.io/badge/LangChain-v1.4%2B-green.svg?style=for-the-badge&logo=langchain)](https://github.com/langchain-ai/langchain)
 [![LangGraph 1.2+](https://img.shields.io/badge/LangGraph-v1.2%2B-orange.svg?style=for-the-badge)](https://github.com/langchain-ai/langgraph)
@@ -468,6 +469,6 @@ python langgraph/human_in_loop_with_iterative_cycle.py
 
 ## 📄 License & Authors
 
-- **Author**: Shyam
-- **License**: MIT
+- **Author**: Shyam Desai
+- **License**: [MIT License](LICENSE)
 - **Dependencies**: Built on [LangChain](https://github.com/langchain-ai/langchain), [LangGraph](https://github.com/langchain-ai/langgraph), [Chroma](https://www.trychroma.com/), and [Google GenAI](https://ai.google.dev/).
